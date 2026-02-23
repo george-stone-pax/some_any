@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Lunch: Some vs Any</title>
+    <!-- Подключение Tailwind CSS для стилей -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Подключение шрифтов -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Основные стили и фоны */
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: radial-gradient(circle at center, #1a2a6c, #b21f1f, #fdbb2d); 
+            background: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop') no-repeat center center fixed; 
+            background-size: cover;
+            color: white;
+            overflow: hidden; /* Запрет прокрутки */
+            touch-action: manipulation;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Оверлей для затемнения яркого фона */
+        .overlay {
+            background: rgba(0, 0, 0, 0.6);
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: -1;
+        }
+
+        .game-font {
+            font-family: 'Fredoka One', cursive;
+        }
+
+        /* Обертка для масштабирования игры в полноэкранном режиме */
+        #scale-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+            transform-origin: center;
+        }
+
+        .game-panel {
+            width: 100%;
+            max-width: 600px; /* Базовая ширина для десктопа/планшета */
+            height: auto;
+            max-height: 95vh;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- АНИМАЦИИ --- */
+        .float-animation {
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        .eat-animation {
+            animation: eat 0.6s ease-in-out;
+        }
+        @keyframes eat {
+            0% { transform: scale(1); }
+            20% { transform: scale(1.1) rotate(-5deg); }
+            50% { transform: scale(1.2) rotate(5deg); }
+            80% { transform: scale(1.1) rotate(-2deg); }
+            100% { transform: scale(1); }
+        }
+
+        .shake-animation {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .flash-red {
+            animation: flashRed 0.5s;
+        }
+        @keyframes flashRed {
+            0%, 100% { box-shadow: 0 0 0 transparent; }
+            50% { box-shadow: inset 0 0 50px 20px rgba(255, 0, 0, 0.5); background-color: rgba(255,0,0,0.2); }
+        }
+
+        /* Стили для "пузыря" с текстом вопроса */
+        .speech-bubble {
+            position: relative;
+            background: #ffffff;
+            color: #333;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            width: 100%;
+        }
+        .speech-bubble:after {
+            content: '';
+            position: absolute;
+            bottom: -18px;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border: 20px solid transparent;
+            border-top-color: #ffffff;
+            border-bottom: 0;
+            margin-left: -20px;
+        }
+
+        /* Стили кнопок с эффектом нажатия */
+        .btn-game {
+            transition: all 0.2s;
+            border-bottom: 6px solid rgba(0,0,0,0.2);
+        }
+        .btn-game:active {
+            transform: translateY(4px);
+            border-bottom: 2px solid rgba(0,0,0,0.2);
+        }
+        .btn-game:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            border-bottom: 6px solid rgba(0,0,0,0.2) !important;
+        }
+
+        /* Кастомный ползунок громкости */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100px;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: #facc15;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 6px;
+            cursor: pointer;
+            background: #4b5563;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="overlay"></div>
+
+    <!-- Кнопка полноэкранного режима -->
+    <button onclick="toggleFullscreen()" class="absolute top-4 right-4 z-50 bg-gray-800 bg-opacity-70 hover:bg-opacity-100 text-white p-3 rounded-full shadow-lg transition text-xl border-2 border-gray-600">
+        ⛶
+    </button>
+
+    <!-- Обертка для системы масштабирования -->
+    <div id="scale-wrapper">
+
+        <!-- === ГЛАВНОЕ МЕНЮ === -->
+        <div id="main-menu" class="game-panel bg-black bg-opacity-80 rounded-3xl p-8 border-4 border-blue-500 shadow-2xl flex flex-col items-center text-center">
+            <h1 class="text-5xl md:text-6xl text-yellow-400 game-font mb-4 tracking-wider">Space Lunch</h1>
+            <p class="text-xl md:text-2xl font-bold mb-6 text-blue-300 game-font">Some vs Any</p>
+            
+            <button onclick="showTheory()" class="w-full mb-4 bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-lg transition game-font btn-game border-b-purple-800">
+                📚 Теория
+            </button>
+            
+            <button onclick="showInstructions()" class="w-full mb-4 bg-teal-600 hover:bg-teal-500 text-white px-8 py-4 rounded-2xl text-xl font-bold shadow-lg transition game-font btn-game border-b-teal-800">
+                ❓ Как играть?
+            </button>
+
+            <!-- Кнопка старта заблокирована по умолчанию -->
+            <button id="btn-start" onclick="startGame()" disabled class="relative w-full bg-green-500 text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-lg transition game-font btn-game border-b-green-700 opacity-50 cursor-not-allowed group">
+                🚀 Начать игру
+                <span id="lock-icon" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-2xl">🔒</span>
+                <div id="lock-tooltip" class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-xs px-3 py-1 rounded hidden group-hover:block whitespace-nowrap">
+                    Сначала изучи теорию!
+                </div>
+            </button>
+        </div>
+
+        <!-- === ЭКРАН ТЕОРИИ === -->
+        <div id="theory-screen" class="game-panel hidden bg-white text-gray-800 p-8 rounded-3xl border-4 border-purple-500 shadow-2xl">
+            <h2 class="text-3xl font-bold text-purple-600 game-font mb-4 text-center">Теория: Some & Any</h2>
+            <div class="text-lg md:text-xl leading-relaxed space-y-4 mb-6 overflow-y-auto max-h-80 pr-2">
+                <p>Мы используем <b>SOME</b> (немного, несколько) в <b>утвердительных</b> предложениях.</p>
+                <p class="bg-green-100 p-2 rounded border-l-4 border-green-500">✅ <i>I have <b>some</b> space apples. (У меня есть несколько космических яблок).</i></p>
+                
+                <p>Мы используем <b>ANY</b> (какой-нибудь, нисколько) в <b>отрицательных</b> и <b>вопросительных</b> предложениях.</p>
+                <p class="bg-red-100 p-2 rounded border-l-4 border-red-500">❌ <i>I don't have <b>any</b> fuel. (У меня нет (никакого) топлива).</i></p>
+                <p class="bg-blue-100 p-2 rounded border-l-4 border-blue-500">❓ <i>Do you have <b>any</b> moon rocks? (У тебя есть лунные камни?).</i></p>
+                
+                <hr>
+                <p class="text-sm bg-yellow-100 p-2 rounded"><b>⚠️ Исключение:</b> Мы используем <b>SOME</b> в вопросах, если мы что-то <b>предлагаем</b> или <b>просим</b> (вежливая просьба/предложение).</p>
+                <p class="text-sm">🌟 <i>Would you like <b>some</b> pizza? (Не хочешь пиццы?)</i></p>
+                <p class="text-sm">🌟 <i>Can I have <b>some</b> water? (Можно мне воды?)</i></p>
+            </div>
+            <button onclick="unlockGame()" class="w-full bg-purple-600 hover:bg-purple-500 text-white px-8 py-3 rounded-2xl text-xl font-bold shadow-lg transition game-font btn-game border-b-purple-800">
+                Я всё понял! Вернуться 🔙
+            </button>
+        </div>
+
+        <!-- === ИНСТРУКЦИЯ === -->
+        <div id="instructions-screen" class="game-panel hidden bg-white text-gray-800 p-8 rounded-3xl border-4 border-teal-500 shadow-2xl">
+            <h2 class="text-3xl font-bold text-teal-600 game-font mb-4 text-center">Как играть?</h2>
+            <div class="text-lg leading-relaxed space-y-4 mb-6">
+                <p>1. К нам на борт прилетел очень голодный инопланетянин. Он пока совсем маленький.</p>
+                <p>2. Читай предложения в облачке над ним.</p>
+                <p>3. Выбирай правильное слово: <b class="text-green-600">SOME</b> или <b class="text-red-500">ANY</b>, чтобы накормить его.</p>
+                <p>4. За каждый правильный ответ монстрик будет расти, а ты получишь 10 очков!</p>
+                <p>5. Если ошибешься, монстрик расстроится, очки не начислятся, а игра объяснит тебе правило.</p>
+                <p>6. Ответь на 15 вопросов и узнай свою финальную оценку!</p>
+            </div>
+            <button onclick="closeInstructions()" class="w-full bg-teal-600 hover:bg-teal-500 text-white px-8 py-3 rounded-2xl text-xl font-bold shadow-lg transition game-font btn-game border-b-teal-800">
+                Понятно! 🚀
+            </button>
+        </div>
+
+        <!-- === ОСНОВНОЙ ИГРОВОЙ ИНТЕРФЕЙС === -->
+        <div id="game-container" class="game-panel hidden px-4">
+            
+            <!-- Верхняя панель: Счет, Уровень, Громкость -->
+            <div class="w-full flex justify-between items-center mb-2 mt-4 text-lg md:text-xl game-font z-20">
+                <div class="bg-blue-600 px-4 py-2 rounded-full border-2 border-blue-400 shadow-lg">
+                    Score: <span id="score">0</span>
+                </div>
+                <!-- Регулятор громкости -->
+                <div class="bg-gray-800 bg-opacity-80 px-4 py-2 rounded-full flex items-center gap-2 border-2 border-gray-500">
+                    <span>🔊</span>
+                    <input type="range" id="volume-slider" min="0" max="1" step="0.1" value="0.5" oninput="changeVolume(this.value)">
+                </div>
+                <div class="bg-purple-600 px-4 py-2 rounded-full border-2 border-purple-400 text-sm shadow-lg">
+                    Level <span id="level-indicator">1</span> / 15
+                </div>
+            </div>
+
+            <!-- Зона Монстрика и Вопроса -->
+            <div class="relative w-full flex flex-col items-center mt-6" style="height: 400px;">
+                
+                <!-- Облачко с текстом вопроса -->
+                <div id="question-box" class="speech-bubble mb-8 z-20 mx-4">
+                    <p id="sentence" class="text-2xl md:text-3xl font-bold leading-relaxed text-gray-800">
+                        Loading...
+                    </p>
+                </div>
+
+                <!-- Контейнер для анимации парения -->
+                <div id="monster-float-wrapper" class="absolute bottom-0 float-animation flex items-center justify-center z-10">
+                    <div id="monster-scale-wrapper" class="w-40 h-40 md:w-48 md:h-48 relative transition-transform duration-1000 ease-in-out origin-bottom">
+                        <!-- 
+                            ====================================================================================
+                            !!! ВНИМАНИЕ: ВСТАВЬТЕ СЮДА ССЫЛКУ НА КАРТИНКУ МОНСТРИКА ИЗ GITHUB PAGES !!!
+                            Пример: src="https://username.github.io/repo/assets/monster.png"
+                            ==================================================================================== 
+                        -->
+                        <img id="monster-img" 
+                             src="https://cdn-icons-png.flaticon.com/512/1624/1624668.png" 
+                             alt="Space Monster" 
+                             class="w-full h-full object-contain drop-shadow-2xl filter brightness-110"
+                             onerror="this.src='https://cdn-icons-png.flaticon.com/512/1089/1089472.png'">
+                        
+                        <div id="food-item" class="absolute top-0 left-1/2 -translate-x-1/2 text-6xl opacity-0 transition-all duration-500 pointer-events-none">🍎</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Панель с кнопками ответов -->
+            <div id="controls" class="w-full grid grid-cols-2 gap-4 md:gap-6 mt-4 mb-4 relative z-20">
+                <button onclick="checkAnswer('some')" class="btn-game bg-green-500 hover:bg-green-400 border-green-700 text-white text-3xl py-5 rounded-3xl game-font shadow-xl tracking-wider">
+                    SOME
+                </button>
+                <button onclick="checkAnswer('any')" class="btn-game bg-red-500 hover:bg-red-400 border-red-700 text-white text-3xl py-5 rounded-3xl game-font shadow-xl tracking-wider">
+                    ANY
+                </button>
+            </div>
+
+            <div id="feedback" class="h-8 font-bold text-xl md:text-2xl text-center opacity-0 transition-opacity game-font z-20">
+                Feedback text
+            </div>
+
+        </div> <!-- Конец game-container -->
+
+        <!-- === ПОПАП ОБЪЯСНЕНИЯ ОШИБКИ === -->
+        <div id="explanation-popup" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
+            <div class="bg-white rounded-3xl p-8 max-w-sm text-center border-4 border-red-500 shadow-2xl transform scale-100 transition-transform">
+                <h3 class="text-3xl text-red-600 game-font mb-4">Ой, ошибка! 😢</h3>
+                <p id="explanation-text" class="text-gray-800 text-xl leading-relaxed mb-6">
+                    Здесь должно быть объяснение...
+                </p>
+                <button onclick="closeExplanation()" class="bg-blue-500 hover:bg-blue-400 text-white px-8 py-3 rounded-2xl text-xl font-bold shadow-lg transition game-font btn-game border-b-blue-700">
+                    Понятно!
+                </button>
+            </div>
+        </div>
+
+        <!-- === ЭКРАН ФИНАЛА ИГРЫ === -->
+        <div id="game-over" class="game-panel hidden bg-black bg-opacity-90 rounded-3xl p-8 border-4 border-yellow-500 shadow-2xl text-center flex flex-col items-center justify-center">
+            <h1 class="text-5xl md:text-6xl text-yellow-400 game-font mb-4 animate-pulse">Mission Complete!</h1>
+            <p class="text-2xl md:text-3xl mb-4 text-white">Монстрик наелся и вырос!</p>
+            <p class="text-2xl mb-2 text-blue-300">Твой счёт: <span id="final-score" class="font-bold text-yellow-300">0</span> из 150</p>
+            
+            <div class="bg-white text-gray-800 py-3 px-8 rounded-2xl my-6 border-4 border-green-500 transform rotate-2">
+                <p class="text-3xl game-font">Оценка: <span id="final-grade" class="text-5xl text-green-600">5</span></p>
+            </div>
+            
+            <!-- === СЕКРЕТНОЕ СЛОВО (Появляется только при оценке 5) === -->
+            <div id="secret-word-container" class="hidden flex-col items-center mb-6 w-full">
+                <button onclick="revealSecretWord()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black px-8 py-4 rounded-2xl text-2xl font-bold shadow-lg transition game-font btn-game border-b-yellow-700 animate-bounce">
+                    🎁 Показать СЕКРЕТНОЕ СЛОВО
+                </button>
+                <div id="secret-word-display" class="hidden mt-4 bg-gray-900 border-2 border-yellow-400 text-yellow-300 px-8 py-4 rounded-xl text-3xl md:text-4xl font-bold game-font tracking-widest shadow-inner">
+                    SHARK - АКУЛА
+                </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 mb-6">
+                <button onclick="showCriteria()" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-3 rounded-2xl text-xl font-bold shadow-lg transition game-font btn-game border-b-purple-800">
+                    📋 Критерии оценки
+                </button>
+                <button onclick="resetToMenu()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-2xl text-xl font-bold shadow-lg transition game-font btn-game border-b-blue-800">
+                    🏠 В главное меню
+                </button>
+            </div>
+        </div>
+
+        <!-- === ПОПАП КРИТЕРИЕВ ОЦЕНКИ === -->
+        <div id="criteria-popup" class="hidden absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4">
+            <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm text-center border-4 border-purple-500 shadow-2xl text-gray-800">
+                <h3 class="text-3xl text-purple-600 game-font mb-6">Критерии оценки</h3>
+                <div class="text-lg space-y-3 mb-8 text-left inline-block">
+                    <p><b>«5»</b>: 100–85% баллов (130-150)</p>
+                    <p><b>«4»</b>: 84–70% баллов (105-120)</p>
+                    <p><b>«3»</b>: 69–50% баллов (75-100)</p>
+                    <p><b>«2»</b>: менее 50% баллов (0-70)</p>
+                </div>
+                <br>
+                <button onclick="closeCriteria()" class="w-full bg-blue-500 hover:bg-blue-400 text-white px-8 py-3 rounded-2xl text-xl font-bold shadow-lg transition game-font btn-game border-b-blue-700">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+
+    </div> <!-- Конец scale-wrapper -->
+
+    <!-- 
+        ====================================================================================
+        АУДИО ФАЙЛЫ ИЗ GITHUB PAGES (Ссылки добавлены автоматически)
+        ==================================================================================== 
+    -->
+    <audio id="sound-correct" src="https://george-stone-pax.github.io/my-game-assets/rightanswer-95219.mp3"></audio> 
+    <audio id="sound-wrong" src="https://george-stone-pax.github.io/my-game-assets/dodgeball.mp3"></audio>
+    <audio id="sound-bgm" src="https://george-stone-pax.github.io/my-game-assets/Aylex%20-%20Back%20To%20Life%20(freetouse.com).mp3" loop></audio>
+
+    <script>
+        // --- ЗАЩИТА STEPIK ---
+        (function() {
+            const allowedDomains = ['stepik.org', 'welcome.stepik.org'];
+            const referrer = document.referrer;
+            const isInsideStepik = allowedDomains.some(domain => referrer.includes(domain));
+            
+            // Исключение для localhost позволяет тестировать игру на компьютере и в редакторах
+            if (!isInsideStepik && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1" && window.location.protocol !== "file:" && window.location.hostname !== "") {
+                document.body.innerHTML = `
+                    <div style="background:#000; color:#fff; height:100vh; display:flex;
+                                flex-direction:column; align-items:center; justify-content:center;
+                                font-family:sans-serif; text-align:center; padding:20px;">
+                        <h1>⛔️ Доступ ограничен</h1>
+                        <p>Эта игра — часть платного курса. <br>
+                        Пожалуйста, вернитесь к обучению на Stepik.</p>
+                        <a href="https://stepik.org" style="color:#4ade80;">Перейти к курсу</a>
+                    </div>`;
+                window.stop();
+            }
+        })();
+
+        // --- ДАННЫЕ ИГРЫ (15 ВОПРОСОВ) ---
+        const questions = [
+            { text: "I have ___ space apples.", answer: "some", food: "🍎", reason: "Мы используем SOME в <b>утвердительных</b> предложениях." },
+            { text: "Do you have ___ moon rocks?", answer: "any", food: "🪨", reason: "В <b>вопросительных</b> предложениях нужно использовать ANY." },
+            { text: "We don't have ___ fuel left!", answer: "any", food: "⛽", reason: "В <b>отрицательных</b> предложениях (don't) всегда ставится ANY." },
+            { text: "There is ___ stardust on your coat.", answer: "some", food: "✨", reason: "Это <b>утвердительное</b> предложение, поэтому SOME." },
+            { text: "Are there ___ aliens in the kitchen?", answer: "any", food: "👽", reason: "Это <b>вопрос</b>, поэтому выбираем ANY." },
+            { text: "I need ___ water for the engine.", answer: "some", food: "💧", reason: "В <b>утвердительных</b> предложениях пишем SOME." },
+            { text: "She doesn't want ___ meteors.", answer: "any", food: "☄️", reason: "Есть отрицание (doesn't), значит нужно ANY." },
+            { text: "Would you like ___ pizza?", answer: "some", food: "🍕", reason: "Исключение! Это <b>вежливое предложение</b> угостить пиццей, поэтому SOME." },
+            { text: "There aren't ___ stars visible today.", answer: "any", food: "⭐", reason: "Отрицание (aren't) требует ANY." },
+            { text: "Look! I found ___ gold coins!", answer: "some", food: "🪙", reason: "Это <b>утверждение</b>, смело ставим SOME." },
+            { text: "I would like ___ tea, please.", answer: "some", food: "🍵", reason: "Это <b>вежливая просьба</b>, используем SOME." },
+            { text: "Do you have ___ questions?", answer: "any", food: "❓", reason: "В обычном <b>вопросе</b> используем ANY." },
+            { text: "There are ___ clouds in the sky.", answer: "some", food: "☁️", reason: "В <b>утвердительных</b> предложениях пишем SOME." },
+            { text: "He doesn't have ___ free time.", answer: "any", food: "⏱️", reason: "В <b>отрицательных</b> предложениях (doesn't) ставится ANY." },
+            { text: "Can I get you ___ dessert?", answer: "some", food: "🍨", reason: "Исключение! Это <b>предложение</b> чего-либо (десерта), поэтому SOME." }
+        ];
+
+        // --- ПЕРЕМЕННЫЕ СОСТОЯНИЯ ---
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let isAnswering = false;
+        let isGameUnlocked = false;
+
+        // Переменные для роста монстра
+        let currentMonsterScale = 0.5; // Начальный размер
+        const maxMonsterScale = 1.5;   // Конечный размер
+        const scaleStep = (maxMonsterScale - currentMonsterScale) / questions.length;
+
+        // --- ПОЛУЧЕНИЕ ЭЛЕМЕНТОВ DOM ---
+        const mainMenu = document.getElementById('main-menu');
+        const theoryScreen = document.getElementById('theory-screen');
+        const instructionsScreen = document.getElementById('instructions-screen');
+        const gameContainer = document.getElementById('game-container');
+        const gameOverScreen = document.getElementById('game-over');
+        
+        const sentenceEl = document.getElementById('sentence');
+        const scoreEl = document.getElementById('score');
+        const levelEl = document.getElementById('level-indicator');
+        const feedbackEl = document.getElementById('feedback');
+        
+        const explanationPopup = document.getElementById('explanation-popup');
+        const explanationText = document.getElementById('explanation-text');
+        
+        const finalScoreEl = document.getElementById('final-score');
+        const finalGradeEl = document.getElementById('final-grade');
+        const criteriaPopup = document.getElementById('criteria-popup');
+        
+        const secretWordContainer = document.getElementById('secret-word-container');
+        const secretWordDisplay = document.getElementById('secret-word-display');
+        
+        const monsterFloatWrapper = document.getElementById('monster-float-wrapper');
+        const monsterScaleWrapper = document.getElementById('monster-scale-wrapper');
+        const foodItem = document.getElementById('food-item');
+        
+        const btnStart = document.getElementById('btn-start');
+        const lockIcon = document.getElementById('lock-icon');
+        const lockTooltip = document.getElementById('lock-tooltip');
+
+        // Аудио элементы
+        const sfxCorrect = document.getElementById('sound-correct');
+        const sfxWrong = document.getElementById('sound-wrong');
+        const bgm = document.getElementById('sound-bgm');
+
+        // --- БЛОКИРОВКА СКРОЛЛА СТРЕЛКАМИ ---
+        window.addEventListener("keydown", function(e) {
+            // Space (32), ArrowUp (38), ArrowDown (40), ArrowLeft (37), ArrowRight (39)
+            if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) {
+                e.preventDefault();
+            }
+        }, false);
+
+        // --- ПОЛНОЭКРАННЫЙ РЕЖИМ И МАСШТАБИРОВАНИЕ ---
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // Динамическое масштабирование игры в зависимости от размера окна
+        function resizeGame() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const windowWidth = window.innerWidth;
+            const windowHeight = window.innerHeight;
+            
+            // Базовые пропорции (как на хорошем планшете/экране)
+            const baseWidth = 800;
+            const baseHeight = 600;
+            
+            const scaleX = windowWidth / baseWidth;
+            const scaleY = windowHeight / baseHeight;
+            let scale = Math.min(scaleX, scaleY);
+            
+            // Ограничения: не делаем меньше 0.6 и больше 1.5, чтобы не сломать UI на очень вытянутых экранах
+            if(scale > 1.3) scale = 1.3; 
+            if(scale < 0.6) scale = 0.6;
+
+            // Если экран вертикальный (телефон), масштаб другой
+            if(windowHeight > windowWidth) {
+                scale = windowWidth / 400; // Подстройка под мобильные
+                if(scale > 1.2) scale = 1.2;
+            }
+
+            // Применяем масштаб
+            // Раскомментируй строку ниже, если хочешь жесткое CSS-масштабирование всего UI
+            // wrapper.style.transform = `scale(${scale})`;
+            
+            // Примечание: Благодаря использованию Tailwind (flex, %, vh), интерфейс и так
+            // отлично адаптируется и "растягивается", сохраняя идеальную четкость шрифтов и векторных иконок.
+        }
+        window.addEventListener('resize', resizeGame);
+        resizeGame(); // вызов при старте
+
+        // --- УПРАВЛЕНИЕ ЗВУКОМ ---
+        function changeVolume(value) {
+            const vol = parseFloat(value);
+            sfxCorrect.volume = vol;
+            sfxWrong.volume = vol;
+            bgm.volume = vol > 0 ? vol * 0.5 : 0; // Фоновая музыка чуть тише эффектов
+        }
+        // Установка начальной громкости
+        changeVolume(0.5);
+
+        function playSound(audioEl) {
+            if (audioEl && audioEl.src) {
+                audioEl.currentTime = 0;
+                audioEl.play().catch(e => console.log('Audio play prevented:', e));
+            }
+        }
+
+        // --- МЕНЮ И НАВИГАЦИЯ ---
+        function showTheory() {
+            mainMenu.classList.add('hidden');
+            theoryScreen.classList.remove('hidden');
+        }
+
+        function unlockGame() {
+            isGameUnlocked = true;
+            theoryScreen.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+            
+            // Разблокировка кнопки старта
+            btnStart.disabled = false;
+            btnStart.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnStart.classList.add('hover:bg-green-400');
+            lockIcon.style.display = 'none';
+            lockTooltip.style.display = 'none';
+        }
+
+        function showInstructions() {
+            mainMenu.classList.add('hidden');
+            instructionsScreen.classList.remove('hidden');
+        }
+
+        function closeInstructions() {
+            instructionsScreen.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        }
+
+        function resetToMenu() {
+            gameOverScreen.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+            bgm.pause();
+            bgm.currentTime = 0;
+        }
+
+        function updateMonsterSize() {
+            monsterScaleWrapper.style.transform = `scale(${currentMonsterScale})`;
+        }
+
+        // --- ИГРОВАЯ ЛОГИКА ---
+        function startGame() {
+            if (!isGameUnlocked) return;
+
+            mainMenu.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+
+            score = 0;
+            currentQuestionIndex = 0;
+            isAnswering = false;
+            scoreEl.innerText = score;
+            
+            currentMonsterScale = 0.5;
+            updateMonsterSize();
+            
+            playSound(bgm); // Запуск фоновой музыки
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                endGame();
+                return;
+            }
+
+            const q = questions[currentQuestionIndex];
+            levelEl.innerText = currentQuestionIndex + 1;
+            
+            const formattedText = q.text.replace("___", "<span class='border-b-4 border-yellow-400 px-2 text-yellow-600'>?</span>");
+            sentenceEl.innerHTML = formattedText;
+            
+            feedbackEl.style.opacity = "0";
+            monsterFloatWrapper.classList.remove('shake-animation');
+            monsterScaleWrapper.classList.remove('eat-animation');
+            foodItem.style.opacity = "0";
+            foodItem.style.transform = "translate(-50%, 0)"; 
+            
+            isAnswering = false;
+        }
+
+        function checkAnswer(choice) {
+            if (isAnswering) return;
+            isAnswering = true;
+
+            const q = questions[currentQuestionIndex];
+            const isCorrect = choice === q.answer;
+
+            if (isCorrect) {
+                handleCorrect(q);
+            } else {
+                handleWrong(q);
+            }
+        }
+
+        function handleCorrect(q) {
+            score += 10;
+            scoreEl.innerText = score;
+            
+            currentMonsterScale += scaleStep;
+            updateMonsterSize();
+
+            sentenceEl.innerHTML = q.text.replace("___", `<span class='text-green-500 font-bold border-b-4 border-green-500 px-2'>${q.answer.toUpperCase()}</span>`);
+            
+            feedbackEl.innerText = "Yum! Tasty! (+10)";
+            feedbackEl.className = "h-8 font-bold text-xl md:text-2xl text-center opacity-100 transition-opacity game-font z-20 text-green-400";
+            
+            monsterScaleWrapper.classList.add('eat-animation');
+            
+            foodItem.innerText = q.food;
+            foodItem.style.opacity = "1";
+            foodItem.style.transform = "translate(-50%, -60px) scale(1.5)"; 
+            
+            playSound(sfxCorrect);
+
+            setTimeout(() => {
+                currentQuestionIndex++;
+                loadQuestion();
+            }, 1800);
+        }
+
+        function handleWrong(q) {
+            monsterFloatWrapper.classList.add('shake-animation');
+            document.body.classList.add('flash-red');
+            playSound(sfxWrong);
+
+            // Показываем правильный ответ в тексте (красным)
+            sentenceEl.innerHTML = q.text.replace("___", `<span class='text-red-500 font-bold border-b-4 border-red-500 px-2 line-through'>${q.answer === 'some' ? 'ANY' : 'SOME'}</span>`);
+
+            setTimeout(() => {
+                monsterFloatWrapper.classList.remove('shake-animation');
+                document.body.classList.remove('flash-red');
+                showExplanationPopup(q);
+            }, 600);
+        }
+
+        function showExplanationPopup(q) {
+            explanationText.innerHTML = `В этом предложении правильный ответ: <b>${q.answer.toUpperCase()}</b>.<br><br>${q.reason}`;
+            explanationPopup.classList.remove('hidden');
+        }
+
+        function closeExplanation() {
+            explanationPopup.classList.add('hidden');
+            // При ошибке баллы не даем, переходим к следующему вопросу
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        // --- ФИНАЛ И КРИТЕРИИ ---
+        function getGrade(scorePercentage) {
+            if (scorePercentage >= 85) return "5";
+            if (scorePercentage >= 70) return "4";
+            if (scorePercentage >= 50) return "3";
+            return "2";
+        }
+
+        function revealSecretWord() {
+            secretWordDisplay.classList.remove('hidden');
+        }
+
+        function endGame() {
+            gameContainer.classList.add('hidden');
+            
+            const maxScore = questions.length * 10;
+            const percentage = (score / maxScore) * 100;
+            const grade = getGrade(percentage);
+            
+            finalScoreEl.innerText = score;
+            finalGradeEl.innerText = grade;
+            
+            // Цвет оценки и логика секретного слова
+            if(grade === "5") {
+                finalGradeEl.className = "text-5xl text-green-600 font-bold";
+                // Показываем блок с кнопкой секретного слова
+                secretWordContainer.classList.remove('hidden');
+                secretWordContainer.classList.add('flex');
+            } else {
+                if(grade === "4") finalGradeEl.className = "text-5xl text-blue-500 font-bold";
+                else if(grade === "3") finalGradeEl.className = "text-5xl text-yellow-500 font-bold";
+                else finalGradeEl.className = "text-5xl text-red-500 font-bold";
+                
+                // Прячем блок секретного слова, если оценка ниже 5
+                secretWordContainer.classList.add('hidden');
+                secretWordContainer.classList.remove('flex');
+            }
+            
+            // Обязательно скрываем само слово при каждом новом запуске
+            secretWordDisplay.classList.add('hidden');
+
+            gameOverScreen.classList.remove('hidden');
+            playSound(sfxCorrect); // Звук победы/окончания
+        }
+
+        function showCriteria() {
+            criteriaPopup.classList.remove('hidden');
+        }
+
+        function closeCriteria() {
+            criteriaPopup.classList.add('hidden');
+        }
+
+    </script>
+</body>
+</html>
