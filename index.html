@@ -369,27 +369,6 @@
     <audio id="sound-wrong" src="https://george-stone-pax.github.io/my-game-assets/dodgeball.mp3"></audio>
     <audio id="sound-bgm" src="https://george-stone-pax.github.io/my-game-assets/Aylex%20-%20Back%20To%20Life%20(freetouse.com).mp3" loop></audio>
 
-    <script>
-        // --- ЗАЩИТА STEPIK ---
-        (function() {
-            const allowedDomains = ['stepik.org', 'welcome.stepik.org'];
-            const referrer = document.referrer;
-            const isInsideStepik = allowedDomains.some(domain => referrer.includes(domain));
-            
-            // Исключение для localhost позволяет тестировать игру на компьютере и в редакторах
-            if (!isInsideStepik && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1" && window.location.protocol !== "file:" && window.location.hostname !== "") {
-                document.body.innerHTML = `
-                    <div style="background:#000; color:#fff; height:100vh; display:flex;
-                                flex-direction:column; align-items:center; justify-content:center;
-                                font-family:sans-serif; text-align:center; padding:20px;">
-                        <h1>⛔️ Доступ ограничен</h1>
-                        <p>Эта игра — часть платного курса. <br>
-                        Пожалуйста, вернитесь к обучению на Stepik.</p>
-                        <a href="https://stepik.org" style="color:#4ade80;">Перейти к курсу</a>
-                    </div>`;
-                window.stop();
-            }
-        })();
 
         // --- ДАННЫЕ ИГРЫ (15 ВОПРОСОВ) ---
         const questions = [
@@ -730,4 +709,5 @@
 
     </script>
 </body>
+
 </html>
